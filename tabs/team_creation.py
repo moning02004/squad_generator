@@ -140,7 +140,7 @@ class TeamCreationTab(QWidget):
         self.date_label.setAlignment(Qt.AlignCenter)
         self.right_layout.addWidget(self.date_label)  # 레이블 추가
 
-        self.save_button = QPushButton("소통런치 조 편성하기", self)
+        self.save_button = QPushButton("조 편성하기", self)
         self.save_button.setEnabled(False)
         self.save_button.setFixedHeight(30)
         self.save_button.clicked.connect(self.generate_team)

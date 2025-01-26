@@ -6,5 +6,6 @@ output
 
 .idea
 users.txt
+users_*
 *.dat
 *.bak

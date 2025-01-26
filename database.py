@@ -185,15 +185,22 @@ class LunchSquadDB:
 
         selected_date = datetime.strptime(date_text, "%Y-%m-%d")
         this_week_date = (selected_date - timedelta(days=selected_date.weekday())).strftime("%Y-%m-%d")
-        standard_date = (selected_date - timedelta(days=selected_date.weekday()) -
-                         timedelta(weeks=Cache.leader_cycle)).strftime("%Y-%m-%d")
+        candidate_date1 = (selected_date - timedelta(days=selected_date.weekday()) -
+                           timedelta(weeks=Cache.leader_cycle)).strftime("%Y-%m-%d")
+        candidate_date2 = (selected_date - timedelta(days=selected_date.weekday()) -
+                           timedelta(weeks=2)).strftime("%Y-%m-%d")
 
+        candidates1 = [(user_id, name, priority) for user_id, name, last_date, enable_date, priority in users
+                       if enable_date < this_week_date and last_date <= candidate_date1]
+        candidates2 = [(user_id, name, priority) for user_id, name, last_date, enable_date, priority in users
+                       if enable_date < this_week_date and last_date <= candidate_date2]
+        candidates = list(set(candidates1 + candidates2[:len(candidates1) - self.team_number]))
+
+        candidate_leader_ids = [x[0] for x in candidates]
         all_users = [(user_id, name, priority) for user_id, name, last_date, enable_date, priority in users if
-                     enable_date < this_week_date]
+                     enable_date < this_week_date if user_id not in candidate_leader_ids]
         random.shuffle(all_users)
-        candidates = [(user_id, name, priority) for user_id, name, last_date, enable_date, priority in users
-                      if enable_date < this_week_date and last_date <= standard_date]
-        candidates = candidates + all_users[:len(candidates) - self.team_number]
+        candidates = list(set(candidates + all_users[:len(candidates) - self.team_number]))
 
         team_leaders = random.sample(candidates, self.team_number)
         team_leader_names = [(x[1], x[2]) for x in team_leaders]

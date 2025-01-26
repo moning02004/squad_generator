@@ -85,7 +85,6 @@ class SquadSettingsTab(QWidget):
 
     def delete_squad_data(self):
         selected_row = self.get_selected_row()
-        print(selected_row)
         if selected_row is not None:
             date_label = self.get_date_label(selected_row)
             self.db.delete_team_history(date_label)
