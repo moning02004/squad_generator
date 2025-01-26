@@ -1,0 +1,10 @@
+venv
+build
+dist
+output
+*.spec
+
+.idea
+users.txt
+*.dat
+*.bak
