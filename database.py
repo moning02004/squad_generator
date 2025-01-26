@@ -126,7 +126,7 @@ class LunchSquadDB:
 
         cursor = self.connect.cursor()
         column = ",".join(columns)
-        cursor.execute(f"select {column} from team_history {where_clause} order by id desc;")
+        cursor.execute(f"select {column} from team_history {where_clause} order by date_text desc;")
         histories = cursor.fetchall()
         cursor.close()
 
@@ -194,13 +194,13 @@ class LunchSquadDB:
                        if enable_date < this_week_date and last_date <= candidate_date1]
         candidates2 = [(user_id, name, priority) for user_id, name, last_date, enable_date, priority in users
                        if enable_date < this_week_date and last_date <= candidate_date2]
-        candidates = list(set(candidates1 + candidates2[:len(candidates1) - self.team_number]))
+        candidates = list(set(candidates1 + candidates2[:self.team_number - len(candidates1)]))
 
         candidate_leader_ids = [x[0] for x in candidates]
         all_users = [(user_id, name, priority) for user_id, name, last_date, enable_date, priority in users if
                      enable_date < this_week_date if user_id not in candidate_leader_ids]
         random.shuffle(all_users)
-        candidates = list(set(candidates + all_users[:len(candidates) - self.team_number]))
+        candidates = list(set(candidates + all_users[:self.team_number - len(candidates)]))
 
         team_leaders = random.sample(candidates, self.team_number)
         team_leader_names = [(x[1], x[2]) for x in team_leaders]

@@ -48,8 +48,8 @@ class UserSettingsTab(QWidget):
 
         # 사용자 명단 테이블 추가
         self.user_table = QTableWidget()
-        self.user_table.setColumnCount(4)
-        self.user_table.setHorizontalHeaderLabels(["선택", "ID", "이름", "마지막 조장 날짜"])
+        self.user_table.setColumnCount(5)
+        self.user_table.setHorizontalHeaderLabels(["선택", "ID", "이름", "마지막 조장 날짜", "출력 그룹"])
         self.user_table.setEditTriggers(QTableWidget.NoEditTriggers)  # 기본적으로 편집 불가능
         self.main_layout.addWidget(self.user_table)
         self.user_table.verticalHeader().setVisible(False)
@@ -65,7 +65,7 @@ class UserSettingsTab(QWidget):
 
         self.radio_button_group = QButtonGroup(self.user_table)
         self.radio_button_group.setExclusive(True)
-        for row_index, (user_id, name, last_date, enable_date, fixed_squad) in enumerate(user_data):
+        for row_index, (user_id, name, last_date, enable_date, display_group) in enumerate(user_data):
             user_id_item = QTableWidgetItem(str(user_id))
             self.user_table.setItem(row_index, 0, user_id_item)
 
@@ -77,6 +77,9 @@ class UserSettingsTab(QWidget):
 
             last_date_item = QTableWidgetItem(str(last_date))
             self.user_table.setItem(row_index, 3, last_date_item)
+
+            display_group_item = QTableWidgetItem(str(display_group))
+            self.user_table.setItem(row_index, 4, display_group_item)
         self.user_table.setColumnHidden(0, True)
 
     def on_cell_clicked(self, row, column):
@@ -104,7 +107,7 @@ class UserSettingsTab(QWidget):
         if selected_row is not None:
             user_id = self.get_user_id(selected_row)
             name, enable_date, last_date, priority = list(self.db.select_user(user_id=user_id))
-            dialog = UserEditDialog(name, enable_date, priority)
+            dialog = UserEditDialog(name, enable_date, last_date, priority)
             if dialog.exec_() == QDialog.Accepted:
                 user_input = dialog.get_user_input()
                 self.db.update_user([user_id], **user_input)
@@ -208,7 +211,7 @@ class UserAddDialog(QDialog):
         layout.addWidget(self.leader_availability_checkbox)
 
         # 출력 순서 입력
-        order_label = QLabel("출력 순서:")
+        order_label = QLabel("출력 그룹:")
         self.order_input = QSpinBox()
         self.order_input.setMinimum(1)  # 최소값 1
         self.order_input.setMaximum(100)  # 최대값 100 (필요에 따라 조정 가능)
@@ -236,7 +239,7 @@ class UserAddDialog(QDialog):
 
 
 class UserEditDialog(QDialog):
-    def __init__(self, name, enable_date, priority):
+    def __init__(self, name, enable_date, last_date, priority):
         super().__init__()
 
         self.setWindowTitle("사용자 수정")
@@ -266,9 +269,18 @@ class UserEditDialog(QDialog):
         date_label = QLabel("최근 조장일:")
         self.recent_date = QDateEdit()
         self.recent_date.setCalendarPopup(True)  # 캘린더 팝업 활성화
-        self.recent_date.setDate(QDate.fromString(enable_date, "yyyy-MM-dd"))
+        self.recent_date.setDate(QDate.fromString(last_date, "yyyy-MM-dd"))
         layout.addWidget(date_label)
         layout.addWidget(self.recent_date)
+
+        # 출력 순서 입력
+        order_label = QLabel("출력 그룹:")
+        self.order_input = QSpinBox()
+        self.order_input.setMinimum(1)  # 최소값 1
+        self.order_input.setMaximum(100)  # 최대값 100 (필요에 따라 조정 가능)
+        self.order_input.setValue(priority)
+        layout.addWidget(order_label)
+        layout.addWidget(self.order_input)
 
         # 날짜 선택 도움말
         date_help_text = QLabel("※ 해당 일의 월요일이 입력됩니다.")
@@ -298,5 +310,6 @@ class UserEditDialog(QDialog):
         return {
             "name": user_name,
             "enable_date": enable_date,
-            "last_date": recent_date
+            "last_date": recent_date,
+            "priority": self.order_input.value()
         }
