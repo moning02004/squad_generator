@@ -65,22 +65,22 @@ class UserSettingsTab(QWidget):
 
         self.radio_button_group = QButtonGroup(self.user_table)
         self.radio_button_group.setExclusive(True)
-        for row_index, (user_id, name, last_date, enable_date, display_group) in enumerate(user_data):
-            user_id_item = QTableWidgetItem(str(user_id))
-            self.user_table.setItem(row_index, 0, user_id_item)
-
+        for row_index, (user_id, name, enable_date, last_date, display_group) in enumerate(user_data):
             radio_button_cell = self.create_radio_button_cell(self.radio_button_group, row_index)
-            self.user_table.setCellWidget(row_index, 1, radio_button_cell)
+            self.user_table.setCellWidget(row_index, 0, radio_button_cell)
+
+            user_id_item = QTableWidgetItem(str(user_id))
+            self.user_table.setItem(row_index, 1, user_id_item)
+            self.user_table.setColumnWidth(1, 50)
 
             name_item = QTableWidgetItem(name)
             self.user_table.setItem(row_index, 2, name_item)
 
-            last_date_item = QTableWidgetItem(str(last_date))
+            last_date_item = QTableWidgetItem(str(last_date or '-'))
             self.user_table.setItem(row_index, 3, last_date_item)
 
             display_group_item = QTableWidgetItem(str(display_group))
             self.user_table.setItem(row_index, 4, display_group_item)
-        self.user_table.setColumnHidden(0, True)
 
     def on_cell_clicked(self, row, column):
         # 첫 번째 열(선택 칸)인 경우 라디오 버튼 선택
@@ -106,8 +106,8 @@ class UserSettingsTab(QWidget):
         selected_row = self.get_selected_row()
         if selected_row is not None:
             user_id = self.get_user_id(selected_row)
-            name, enable_date, last_date, priority = list(self.db.select_user(user_id=user_id))
-            dialog = UserEditDialog(name, enable_date, last_date, priority)
+            name, enable_date, _, priority = list(self.db.select_user(user_id=user_id))
+            dialog = UserEditDialog(name, enable_date, priority)
             if dialog.exec_() == QDialog.Accepted:
                 user_input = dialog.get_user_input()
                 self.db.update_user([user_id], **user_input)
@@ -137,13 +137,13 @@ class UserSettingsTab(QWidget):
 
     def get_selected_row(self):
         for row in range(self.user_table.rowCount()):
-            radio_button = self.user_table.cellWidget(row, 1)
+            radio_button = self.user_table.cellWidget(row, 0)
             if radio_button and radio_button.isChecked():
                 return row
         return None
 
     def get_user_id(self, row):
-        user_id_item = self.user_table.item(row, 0)
+        user_id_item = self.user_table.item(row, 1)
         return user_id_item.text() if user_id_item else None
 
     def display_user_info(self, *user_info):
@@ -170,7 +170,7 @@ class UserDetailDialog(QDialog):
         date_label.setAlignment(Qt.AlignLeft)
         layout.addWidget(date_label)
 
-        date_label = QLabel(f"마지막 조장 날짜: {last_date}", self)
+        date_label = QLabel(f"마지막 조장 날짜: {last_date or '-'}", self)
         date_label.setAlignment(Qt.AlignLeft)
         layout.addWidget(date_label)
 
@@ -239,7 +239,7 @@ class UserAddDialog(QDialog):
 
 
 class UserEditDialog(QDialog):
-    def __init__(self, name, enable_date, last_date, priority):
+    def __init__(self, name, enable_date, priority):
         super().__init__()
 
         self.setWindowTitle("사용자 수정")
@@ -264,14 +264,6 @@ class UserEditDialog(QDialog):
         self.enable_date.setDate(QDate.fromString(enable_date, "yyyy-MM-dd"))
         layout.addWidget(date_label)
         layout.addWidget(self.enable_date)
-
-        # 날짜 선택 위젯
-        date_label = QLabel("최근 조장일:")
-        self.recent_date = QDateEdit()
-        self.recent_date.setCalendarPopup(True)  # 캘린더 팝업 활성화
-        self.recent_date.setDate(QDate.fromString(last_date, "yyyy-MM-dd"))
-        layout.addWidget(date_label)
-        layout.addWidget(self.recent_date)
 
         # 출력 순서 입력
         order_label = QLabel("출력 그룹:")
@@ -303,13 +295,10 @@ class UserEditDialog(QDialog):
     def get_user_input(self):
         user_name = self.name_input.text().strip()
         enable_date = convert_to_date(self.enable_date.date().addDays(-self.enable_date.date().dayOfWeek() + 1))
-        recent_date = convert_to_date(self.recent_date.date().addDays(-self.recent_date.date().dayOfWeek() + 1))
         enable_date = "9999-12-31" if self.leader_availability_checkbox.isChecked() else enable_date
-        recent_date = "9999-12-31" if self.leader_availability_checkbox.isChecked() else recent_date
 
         return {
             "name": user_name,
             "enable_date": enable_date,
-            "last_date": recent_date,
             "priority": self.order_input.value()
         }

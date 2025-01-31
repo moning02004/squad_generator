@@ -75,6 +75,8 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.tab3, "조편성 설정")
         self.setWindowTitle("소통런치 조편성 프로그램")
 
+        print(list(self.db.select_user(user_id=17)))
+
     def export_users(self):
         users = self.db.select_users()
         current_time = str(int(datetime.now().timestamp() * 1000))

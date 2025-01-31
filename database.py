@@ -69,14 +69,27 @@ class LunchSquadDB:
             where_clause = f"where enable_leader = {where_clause}"
 
         cursor = self.connect.cursor()
-        cursor.execute(f"select * from users {where_clause} order by last_date")
+        cursor.execute(f"select id, name, enable_date, "
+                       f"(select date_text from team_history "
+                       f"where leader_ids like '' || a.id ||',%' "
+                       f"or leader_ids like '%, ' || a.id || ',%' "
+                       f"or leader_ids like '%, ' || a.id || ''"
+                       f"order by date_text desc limit 1) as recent_date, "
+                       f"priority "
+                       f"from users a {where_clause} order by priority desc, enable_date, recent_date")
         users = cursor.fetchall()
         cursor.close()
         return users
 
     def select_user(self, user_id):
         cursor = self.connect.cursor()
-        cursor.execute(f"select name, enable_date, last_date, priority from users where id = {user_id}")
+        cursor.execute(f"select name, enable_date, "
+                       f"(select date_text from team_history "
+                       f"where leader_ids like '' || {user_id} ||',%' "
+                       f"or leader_ids like '%, ' || {user_id} || ',%' "
+                       f"or leader_ids like '%, ' || {user_id} || ''"
+                       f"order by date_text desc limit 1) as recent_date, "
+                       f"priority from users where id = {user_id}")
         users = cursor.fetchone()
         cursor.close()
         return users
@@ -95,8 +108,6 @@ class LunchSquadDB:
 
         cursor = self.connect.cursor()
         cursor.execute(f"UPDATE users SET {values} WHERE id in ({user_ids})")
-        cursor.execute(f"select name, enable_date, last_date, priority from users where id in ({user_ids})")
-        users = cursor.fetchone()
         self.connect.commit()
         self.logging_message(cursor, message=f"사용자 정보가 변경되었습니다. ({values})")
         cursor.close()
@@ -178,7 +189,14 @@ class LunchSquadDB:
 
     def generate_team(self, date_text):
         cursor = self.connect.cursor()
-        cursor.execute(f"select id, name, last_date, enable_date, priority from users;")
+
+        cursor.execute(f"select a.id, name, enable_date, "
+                       f"(select date_text from team_history "
+                       f"where leader_ids like '' || a.id ||',%' "
+                       f"or leader_ids like '%, ' || a.id || ',%' "
+                       f"or leader_ids like '%, ' || a.id || ''"
+                       f"order by date_text desc limit 1) as recent_date, "
+                       f"priority from users a")
         users = cursor.fetchall()
         cursor.close()
         order_by = {x[1]: x[-1] or 100 for x in users}
@@ -190,15 +208,21 @@ class LunchSquadDB:
         candidate_date2 = (selected_date - timedelta(days=selected_date.weekday()) -
                            timedelta(weeks=2)).strftime("%Y-%m-%d")
 
-        candidates1 = [(user_id, name, priority) for user_id, name, last_date, enable_date, priority in users
-                       if enable_date < this_week_date and last_date <= candidate_date1]
-        candidates2 = [(user_id, name, priority) for user_id, name, last_date, enable_date, priority in users
-                       if enable_date < this_week_date and last_date <= candidate_date2]
-        candidates = list(set(candidates1 + candidates2[:self.team_number - len(candidates1)]))
+        candidates1 = [(user_id, name, priority) for user_id, name, enable_date, last_date, priority in users
+                       if enable_date < this_week_date and (last_date is None or last_date <= candidate_date1)]
+        random.shuffle(candidates1)
+        candidates1 = candidates1[:self.team_number]
+
+        candidate1_leader_ids = [x[0] for x in candidates1]
+        candidates2 = [(user_id, name, priority) for user_id, name, enable_date, last_date, priority in users
+                       if enable_date < this_week_date and (last_date is None or last_date <= candidate_date2)
+                       and user_id not in candidate1_leader_ids]
+        random.shuffle(candidates2)
+        candidates = candidates1 + candidates2[:self.team_number - len(candidates1)]
 
         candidate_leader_ids = [x[0] for x in candidates]
-        all_users = [(user_id, name, priority) for user_id, name, last_date, enable_date, priority in users if
-                     enable_date < this_week_date if user_id not in candidate_leader_ids]
+        all_users = [(user_id, name, priority) for user_id, name, enable_date, last_date, priority in users
+                     if enable_date < this_week_date and user_id not in candidate_leader_ids]
         random.shuffle(all_users)
         candidates = list(set(candidates + all_users[:self.team_number - len(candidates)]))
 
