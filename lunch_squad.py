@@ -48,22 +48,17 @@ class MainWindow(QMainWindow):
         self.widget.setLayout(QVBoxLayout())
         self.widget.layout().addWidget(self.tabs)
 
-        backup_filename = "lunch_squad.bak"
-        if os.path.exists(backup_filename):
-            os.remove(backup_filename)  # 기존 파일 제거
-        running_db = "lunch_squad.dat"
-        if os.path.exists(running_db):
-            shutil.copy(running_db, backup_filename)
-
         try:
-            with open("./settings.conf", "r", encoding="utf-8") as file:
+            with open("./settings.txt", "r", encoding="utf-8") as file:
                 data = yaml.safe_load(file)
         except FileNotFoundError:
             data = {}
 
-        Cache.team_member = data.get("team_member", 5)
+        Cache.team_member = data.get("team_member", 4)
         Cache.leader_display_row = data.get("leader_display_row", 3)
         Cache.leader_cycle = data.get("leader_cycle", 3)
+
+        running_db = "lunch_squad.dat"
         self.db = LunchSquadDB(running_db)
 
         # 탭 추가
@@ -74,8 +69,6 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.tab2, "사용자 설정")
         self.tabs.addTab(self.tab3, "조편성 설정")
         self.setWindowTitle("소통런치 조편성 프로그램")
-
-        print(list(self.db.select_user(user_id=17)))
 
     def export_users(self):
         users = self.db.select_users()
