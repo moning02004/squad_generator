@@ -63,7 +63,6 @@ class TeamResultLayout(QVBoxLayout):
         else:
             team_json_data, leader_ids = self.db.insert_team_history(date_label, selected_date)
 
-        print(team_json_data, leader_ids)
         if leader_ids:
             self.db.update_user(leader_ids, last_date=selected_date)
 

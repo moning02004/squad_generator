@@ -148,9 +148,9 @@ class LunchSquadDB:
         if where_clauses:
             where_clause = " and ".join(where_clauses)
             where_clause = f"where {where_clause}"
-            columns = ["team_data", "leader_ids"]
+            columns = ["team_data", "leader_ids", "date_text"]
         else:
-            columns = ["id", "date_label", "leader_ids"]
+            columns = ["id", "date_label", "leader_ids", "date_text"]
 
         cursor = self.connect.cursor()
         column = ",".join(columns)
@@ -194,7 +194,6 @@ class LunchSquadDB:
         self.connect.commit()
         cursor.close()
 
-        print(leader_ids_text)
         return team_json_data, leader_ids_text
 
     def delete_team_history(self, date_label):
