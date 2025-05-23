@@ -1,8 +1,9 @@
+import json
 import os
 from datetime import datetime, timedelta
 
-from PyQt5.QtCore import Qt, QDate, QRect, QTimer
-from PyQt5.QtGui import QPixmap, QMouseEvent
+from PyQt5.QtCore import Qt, QDate, QRect
+from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QPushButton, QLabel, QHBoxLayout, QWidget, QVBoxLayout, QCalendarWidget
 
 from utils import convert_to_date, show_dialog, Cache
@@ -43,45 +44,45 @@ class TeamResultLayout(QVBoxLayout):
         self.data = []  # 데이터 초기화
 
         result = self.db.select_team_history(date_label=date_label, date_text=date_text)
-        self.data = list(result[0])[0].split("\n") if result else []
-        if self.data:
-            self.show_team_member(self.data)
+        try:
+            self.data = json.loads(result[0][0])
+            if self.data:
+                self.show_team_member()
+        except IndexError:
+            self.data = list()
 
     def insert_team_member(self, date_label, selected_date, clone_date=None):
         self.clear_layout()  # 레이아웃 정리
         self.data = []  # 데이터 초기화
 
         if clone_date:
-            result, leader_ids = self.db.clone_team_history(date_label=date_label,
-                                                            date_text=clone_date)
-            result = result.split("\n")
+            team_json_data, leader_ids = self.db.clone_team_history(date_label=date_label,
+                                                                    date_text=selected_date,
+                                                                    clone_data=clone_date)
             leader_ids = [int(x.strip()) for x in leader_ids.split(",") if x.strip()]
         else:
-            result, leader_ids = self.db.insert_team_history(date_label, selected_date)
+            team_json_data, leader_ids = self.db.insert_team_history(date_label, selected_date)
 
+        print(team_json_data, leader_ids)
         if leader_ids:
             self.db.update_user(leader_ids, last_date=selected_date)
 
-        self.data = result if result else []  # 결과 값이 없다면 빈 리스트로 초기화
+        self.data = json.loads(team_json_data)
         if self.data:
-            self.show_team_member(self.data)
+            self.show_team_member()
 
-    def show_team_member(self, result):
-        length = 0
-        for index, row_data in enumerate(result):
-            members = row_data.split(", ")
-            if index == 0:
-                length = len(members)
-            members = members + ["" for x in range(length - len(members))]
-
+    def show_team_member(self):
+        [x.insert(0, f"{index + 1} 조") for index, x in enumerate(self.data)]
+        for index, row_data in enumerate(zip(*self.data)):
             row_layout = QHBoxLayout()
             row_layout.setSpacing(0)
-            for x in members:
+            for x in row_data:
+                x = x or ""
+
                 stylesheet = ["background-color: white;"]
                 if index == 0:
                     stylesheet.append("color: #3333ff; border-bottom: 1px solid blue;")
-                elif x.startswith("#"):
-                    x = x[1:]
+                elif x and index == Cache.leader_display_row:
                     stylesheet = ["background-color: #ffff55;"]
 
                 label_number = QLabel(x.strip())

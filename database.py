@@ -1,9 +1,26 @@
+import json
 import random
 import sqlite3
+import time
 from collections import defaultdict
 from datetime import datetime, timedelta
+from itertools import zip_longest
 
 from utils import Cache
+
+
+def check_divide_members(squad, divide_members, user_order):
+    last_squad = list(squad[-1])
+
+    for index in range(len(squad)):
+        squad[index] = list(squad[index])
+        if len(set(squad[index]) & set(divide_members)) == len(divide_members):
+            squad[index].append(last_squad.pop(-1))
+            last_squad.append(squad[index].pop(squad[index].index(divide_members[1])))
+    squad[-1] = last_squad
+
+    for index in range(len(squad)):
+        squad[index][1:] = sorted(squad[index][1:], key=lambda _x: user_order.get(_x, 100))
 
 
 class LunchSquadDB:
@@ -149,34 +166,36 @@ class LunchSquadDB:
             team = history[0]
             return team, None, None
 
-        team, leader_ids = self.generate_team(date_text)
-        leader = team.pop(1)
-        team.insert(Cache.leader_display_row, leader)
+        new_squad, leader_ids = self.generate_team(date_text)
+        for x in new_squad:
+            leader = x.pop(0)
+            x.insert(Cache.leader_display_row - 1, leader)
 
-        data = "\n".join(team)
+        team_json_data = json.dumps(new_squad, ensure_ascii=False)
         cursor = self.connect.cursor()
         leader_ids_text = ", ".join(map(str, leader_ids))
         cursor.execute(
-            f"INSERT INTO team_history (date_label, date_text, team_data, leader_ids) VALUES ('{date_label}', '{date_text}', '{data.strip()}', '{leader_ids_text}')")
+            f"INSERT INTO team_history (date_label, date_text, team_data, leader_ids) VALUES ('{date_label}', '{date_text}', '{team_json_data}', '{leader_ids_text}')")
         self.logging_message(cursor, message=f"{date_label} 소통런치 조편성이 생성되었습니다.")
         self.connect.commit()
         cursor.close()
-        return team, leader_ids
+        return team_json_data, leader_ids
 
-    def clone_team_history(self, date_label, date_text):
-        history = self.select_team_history(date_text=date_text)
+    def clone_team_history(self, date_label, date_text, clone_data):
+        history = self.select_team_history(date_text=clone_data)
         if not history:
             return None, None
 
-        team, leader_ids = history[0]
+        team_json_data, leader_ids_text = history[0]
         cursor = self.connect.cursor()
-        leader_ids_text = ", ".join(map(str, leader_ids))
         cursor.execute(
-            f"INSERT INTO team_history (date_label, date_text, team_data, leader_ids) VALUES ('{date_label}', '{date_text}', '{team.strip()}', '{leader_ids_text}')")
+            f"INSERT INTO team_history (date_label, date_text, team_data, leader_ids) VALUES ('{date_label}', '{date_text}', '{team_json_data}', '{leader_ids_text}')")
         self.logging_message(cursor, message=f"{date_label} 소통런치 조편성이 복제되었습니다.")
         self.connect.commit()
         cursor.close()
-        return team, leader_ids
+
+        print(leader_ids_text)
+        return team_json_data, leader_ids_text
 
     def delete_team_history(self, date_label):
         where_clause = f"where date_label = '{date_label}'"
@@ -231,24 +250,25 @@ class LunchSquadDB:
         random.shuffle(team_leader_names)
         left_members = list(set([(name, priority) for _, name, _, _, priority in users]) -
                             set(team_leader_names))
-        workers = sorted(left_members, key=lambda x: order_by.get(x[0], 100))[:self.team_number * 2]
-        left_members = list(set(left_members) - set(workers))
+
         left_users = defaultdict(lambda: list())
         ordered_priority = list()
+        left_member = list()
         for x, _priority in left_members:
+            random.seed(time.time_ns())
             left_users[_priority].append(x)
             ordered_priority.append(_priority)
             random.shuffle(left_users[_priority])
-        left_members = [x[0] for x in workers]
-        [left_members.extend(left_users[x]) for x in sorted(set(ordered_priority))]
+        [left_member.extend(left_users[x]) for x in sorted(set(ordered_priority))]
+        team_leader_names = [x[0] for x in team_leader_names]
 
-        team_leader_names = [f"#{x[0]}" for x in team_leader_names]
-        teams = [", ".join([f"{x}조" for x in range(1, self.team_number + 1)]), ", ".join(team_leader_names)]
-        for index in range(0, len(users), self.team_number):
-            row = ", ".join(left_members[index:index + self.team_number])
-            teams.append(row.strip())
-        teams = [x.strip() for x in teams if x.strip()]
-        return teams, [x[0] for x in team_leaders]
+        teams = [team_leader_names]
+        for index in range(0, len(left_member), Cache.team_member):
+            teams.append(left_member[index:index + Cache.team_member])
+
+        squad = list(zip_longest(*teams))
+        check_divide_members(squad, ['김도윤', '이민우 팀장'], order_by)
+        return squad, [x[0] for x in team_leaders]
 
     def logging_message(self, cursor, message):
         cursor.execute(f"INSERT INTO log (text) VALUES ({repr(message)})")
