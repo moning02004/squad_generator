@@ -186,7 +186,7 @@ class LunchSquadDB:
         if not history:
             return None, None
 
-        team_json_data, leader_ids_text = history[0]
+        team_json_data, leader_ids_text, _ = history[0]
         cursor = self.connect.cursor()
         cursor.execute(
             f"INSERT INTO team_history (date_label, date_text, team_data, leader_ids) VALUES ('{date_label}', '{date_text}', '{team_json_data}', '{leader_ids_text}')")
